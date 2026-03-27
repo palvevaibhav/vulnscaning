@@ -1,6 +1,10 @@
 # Windows junk
 *.exe
 *.stackdump
+*.tar
+*.tar.gz
+*.zip
+*.7z
 
 # Logs
 *.log
