@@ -11,6 +11,21 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/deepfence/package-scanner/utils"
+	"github.com/deepfence/vessel"
+	containerdRuntime "github.com/deepfence/vessel/containerd"
+	crioRuntime "github.com/deepfence/vessel/crio"
+	dockerdRuntime "github.com/deepfence/vessel/dockerd"
+	podmanRuntime "github.com/deepfence/vessel/podman"
+	vesselConstants "github.com/deepfence/vessel/utils"
+	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
+)
+
+const (
+	HostMountDir   = "/fenced/mnt/host"
+	registryPrefix = "registry:"
 )
 
 // ---------------- STRUCT ----------------
@@ -77,7 +92,7 @@ func printProgressBar(percent float64) {
 
 // ---------------- RUN SYFT ON CHUNK ----------------
 
-func RunSyftOnChunkDir(chunkName string, mountRoot string, outputDir string, syftBinPath string, index, total int) error {
+func RunSyftOnChunkDir(chunkName string, mountRoot string, outputDir string, index, total int) error {
 
 	start := time.Now()
 	chunkPath := filepath.Join(mountRoot, chunkName)
@@ -120,13 +135,9 @@ func RunSyftOnChunkDir(chunkName string, mountRoot string, outputDir string, syf
 	}
 
 	// 🔍 Log full command for debugging
-	if strings.TrimSpace(syftBinPath) == "" {
-		syftBinPath = "syft"
-	}
+	fmt.Printf("\n🔍 Running: syft %s\n", strings.Join(args, " "))
 
-	fmt.Printf("\n🔍 Running: %s %s\n", syftBinPath, strings.Join(args, " "))
-
-	cmd := exec.Command(syftBinPath, args...)
+	cmd := exec.Command("syft", args...)
 	out, err := cmd.CombinedOutput()
 
 	// ✅ Stop progress
@@ -153,6 +164,35 @@ func RunSyftOnChunkDir(chunkName string, mountRoot string, outputDir string, syf
 	fmt.Printf("\n⏱️  Time taken: %s\n", duration)
 
 	return nil
+}
+
+func syftBuildArgs(config utils.Config, syftArgs []string, syftEnv []string) ([]string, []string) {
+	if config.ScanType != "" && config.ScanType != "all" {
+		isRegistry := config.RegistryID != "" && config.NodeType == utils.NodeTypeImage
+		syftArgs = append(syftArgs, buildCatalogersArg(config.ScanType, isRegistry)...)
+	}
+
+	if config.IsRegistry {
+		if !strings.HasPrefix(syftArgs[1], registryPrefix) {
+			syftArgs[1] = registryPrefix + syftArgs[1]
+		}
+	} else {
+		syftArgs[1] = strings.ReplaceAll(syftArgs[1], registryPrefix, "")
+	}
+
+	if config.RegistryID != "" && config.NodeType == utils.NodeTypeImage {
+		if config.RegistryCreds.AuthFilePath != "" {
+			syftEnv = append(syftEnv, fmt.Sprintf("DOCKER_CONFIG=%s", config.RegistryCreds.AuthFilePath))
+		}
+		if config.RegistryCreds.SkipTLSVerify {
+			syftEnv = append(syftEnv, fmt.Sprintf("SYFT_REGISTRY_INSECURE_SKIP_TLS_VERIFY=%s", "true"))
+		}
+		if config.RegistryCreds.UseHTTP {
+			syftEnv = append(syftEnv, fmt.Sprintf("SYFT_REGISTRY_INSECURE_USE_HTTP=%s", "true"))
+		}
+	}
+
+	return syftArgs, syftEnv
 }
 
 // ---------------- MAIN ----------------
@@ -208,7 +248,7 @@ func RunSyftProcess(cfg *Config) error {
 				return
 			}
 
-			if err := RunSyftOnChunkDir(name, mountRoot, outputDir, cfg.SyftBinPath, idx+1, totalChunks); err != nil {
+			if err := RunSyftOnChunkDir(name, mountRoot, outputDir, idx+1, totalChunks); err != nil {
 				mu.Lock()
 				errs = append(errs, err)
 				mu.Unlock()
