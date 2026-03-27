@@ -1,17 +1,16 @@
 package sbom
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Jeffail/tunny"
+	"github.com/deepfence/package-scanner/internal/workflow"
+	"github.com/deepfence/package-scanner/utils"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 	"strconv"
-
-	"github.com/Jeffail/tunny"
-	"github.com/deepfence/package-scanner/sbom/syft"
-	"github.com/deepfence/package-scanner/utils"
-	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 var (
@@ -21,7 +20,7 @@ var (
 	workerPool            *tunny.Pool
 )
 
-const DefaultPackageScanConcurrency = 5
+const DefaultPackageScanConcurrency = 5 // Default concurrency for processing registry messages, can be overridden by setting PACKAGE_SCAN_CONCURRENCY env variable
 
 func init() {
 	var err error
@@ -56,15 +55,24 @@ func processRegistryMessage(rInterface interface{}) interface{} {
 		log.Error("Error processing input config")
 		return false
 	}
-	config := utils.Config{
-		Output:                "",
-		Quiet:                 true,
-		ConsoleURL:            managementConsoleURL,
-		ConsolePort:           managementConsolePort,
-		DeepfenceKey:          "",
-		Source:                r.Source,
+
+	// Map full utils.Config into workflow.Config
+	cfg := &workflow.Config{
+		RootPath:        r.Source,
+		OutputFile:      r.Output,              // existing Output
+		Workers:         8,                     // default, can be mapped from r if needed
+		ChunkSizeGB:     1,                     // default chunk size
+		MountRoot:       "/tmp/mounted_chunks", // default mount path
+		MountWorkers:    8,                     // default
+		SyftOutputDir:   "./sbom-output",
+		FinalOutputFile: r.Output, // you can also customize final output
+
+		// Preserve all Deepfence/management info
+		DeepfenceKey:          r.DeepfenceKey,
+		ConsoleURL:            r.ConsoleURL,
+		ConsolePort:           r.ConsolePort,
 		ScanType:              r.ScanType,
-		VulnerabilityScan:     true,
+		VulnerabilityScan:     r.VulnerabilityScan,
 		ScanID:                r.ScanID,
 		NodeType:              r.NodeType,
 		NodeID:                r.NodeID,
@@ -74,12 +82,18 @@ func processRegistryMessage(rInterface interface{}) interface{} {
 		KubernetesClusterName: r.KubernetesClusterName,
 		RegistryID:            r.RegistryID,
 	}
-	ctx := context.Background()
-	_, err := syft.GenerateSBOM(ctx, config)
+
+	start := time.Now()
+	log.Infof("Starting custom workflow for Source: %s, NodeID: %s", r.Source, r.NodeID)
+
+	err := workflow.Run(cfg)
 	if err != nil {
-		log.Errorf("Error processing SBOM: %s", err.Error())
+		log.Errorf("Error running custom workflow: %s", err)
 		return false
 	}
+
+	duration := time.Since(start)
+	log.Infof("✅ Workflow completed for Source: %s, NodeID: %s in %v", r.Source, r.NodeID, duration)
 	return true
 }
 
