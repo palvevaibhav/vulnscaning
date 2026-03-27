@@ -3,14 +3,16 @@ package sbom
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Jeffail/tunny"
+	"context"
+	"github.com/deepfence/package-scanner/sbom/syft"
+	"github.com/deepfence/package-scanner/utils"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
-	"github.com/Jeffail/tunny"
-	"github.com/deepfence/package-scanner/internal/workflow"
-	"github.com/deepfence/package-scanner/utils"
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -59,13 +61,13 @@ func processRegistryMessage(rInterface interface{}) interface{} {
 	// Map full utils.Config into workflow.Config
 	cfg := &workflow.Config{
 		RootPath:        r.Source,
-		OutputFile:      r.Output,                // existing Output
-		Workers:         8,                        // default, can be mapped from r if needed
-		ChunkSizeGB:     1,                        // default chunk size
-		MountRoot:       "/tmp/mounted_chunks",    // default mount path
-		MountWorkers:    8,                        // default
+		OutputFile:      r.Output,              // existing Output
+		Workers:         8,                     // default, can be mapped from r if needed
+		ChunkSizeGB:     1,                     // default chunk size
+		MountRoot:       "/tmp/mounted_chunks", // default mount path
+		MountWorkers:    8,                     // default
 		SyftOutputDir:   "./sbom-output",
-		FinalOutputFile: r.Output,                 // you can also customize final output
+		FinalOutputFile: r.Output, // you can also customize final output
 
 		// Preserve all Deepfence/management info
 		DeepfenceKey:          r.DeepfenceKey,
@@ -84,17 +86,48 @@ func processRegistryMessage(rInterface interface{}) interface{} {
 	}
 
 	start := time.Now()
-	log.Infof("Starting custom workflow for Source: %s, NodeID: %s", r.Source, r.NodeID)
+	log.Infof("Starting chunked Syft scan for Source: %s, NodeID: %s", r.Source, r.NodeID)
 
-	err := workflow.Run(cfg)
+	ctx := context.Background()
+	sbom, err := syft.RunChunkedSyft(ctx, r, r.Source)
 	if err != nil {
-		log.Errorf("Error running custom workflow: %s", err)
+		log.Errorf("Error running chunked Syft: %s", err)
+		return false
+	}
+
+	err = os.WriteFile(r.Output, sbom, 0644)
+	if err != nil {
+		log.Errorf("Error writing SBOM to file: %s", err)
 		return false
 	}
 
 	duration := time.Since(start)
-	log.Infof("✅ Workflow completed for Source: %s, NodeID: %s in %v", r.Source, r.NodeID, duration)
+	log.Infof("✅ Chunked Syft scan completed for Source: %s, NodeID: %s in %v", r.Source, r.NodeID, duration)
 	return true
+}
+
+func getIntEnv(key string, defaultVal int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return defaultVal
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultVal
+	}
+	return parsed
+}
+
+func getInt64Env(key string, defaultVal int64) int64 {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return defaultVal
+	}
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return defaultVal
+	}
+	return parsed
 }
 
 func registryHandler(w http.ResponseWriter, req *http.Request) {
