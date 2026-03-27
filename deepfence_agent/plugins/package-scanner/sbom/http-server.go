@@ -97,6 +97,30 @@ func processRegistryMessage(rInterface interface{}) interface{} {
 	return true
 }
 
+func getIntEnv(key string, defaultVal int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return defaultVal
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultVal
+	}
+	return parsed
+}
+
+func getInt64Env(key string, defaultVal int64) int64 {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return defaultVal
+	}
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return defaultVal
+	}
+	return parsed
+}
+
 func registryHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" {
 		http.Error(w, "Method is not supported.", http.StatusBadRequest)
