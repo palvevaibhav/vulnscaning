@@ -2,10 +2,10 @@ package workflow
 
 import (
 	"fmt"
-	"time"
-        "os"
+	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Config represents all the config for your workflow
@@ -37,12 +37,12 @@ type Config struct {
 
 func cleanupTargets(cfg *Config) error {
 	fmt.Println("🧹 Cleaning only target paths (with enhanced security)")
-	
+
 	criticalPaths := []string{
 		"/", "/bin", "/sbin", "/usr", "/lib", "/lib64",
 		"/etc", "/var", "/boot", "/dev", "/proc", "/sys",
 	}
- 
+
 	// =========================
 	// 🔒 ENHANCED SAFETY CHECK
 	// =========================
@@ -51,14 +51,14 @@ func cleanupTargets(cfg *Config) error {
 		if err != nil {
 			return true // Fail-safe: treat errors as critical
 		}
- 
+
 		// NEW: Resolve symlinks to get the real path
 		realPath, err := filepath.EvalSymlinks(abs)
 		if err != nil {
 			// If we can't resolve symlinks, check the path as-is
 			realPath = abs
 		}
- 
+
 		for _, c := range criticalPaths {
 			cAbs, _ := filepath.Abs(c)
 			// Check both the provided path and the real path
@@ -74,13 +74,13 @@ func cleanupTargets(cfg *Config) error {
 		}
 		return false
 	}
- 
+
 	// =========================
 	// 🔧 FIX PATHS
 	// =========================
 	absRoot, _ := filepath.Abs(cfg.RootPath)
 	absMount, _ := filepath.Abs(cfg.MountRoot)
-	
+
 	// NEW: Also check the real path of mount
 	realMount, err := filepath.EvalSymlinks(absMount)
 	if err != nil {
@@ -91,19 +91,19 @@ func cleanupTargets(cfg *Config) error {
 		fmt.Println("✅ Cleanup done (with critical path safety)")
 		return nil
 	}
- 
+
 	absSyft := cfg.SyftOutputDir
 	if !filepath.IsAbs(absSyft) {
 		absSyft = filepath.Join(absRoot, absSyft)
 	}
 	absSyft, _ = filepath.Abs(absSyft)
- 
+
 	absOutput := cfg.OutputFile
 	if !filepath.IsAbs(absOutput) {
 		absOutput = filepath.Join(absRoot, absOutput)
 	}
 	absOutput, _ = filepath.Abs(absOutput)
- 
+
 	// =========================
 	// 📁 ENHANCED CLEAN DIR FUNCTION
 	// =========================
@@ -112,16 +112,16 @@ func cleanupTargets(cfg *Config) error {
 			fmt.Printf("🚫 Skipping critical dir: %s\n", dir)
 			return
 		}
- 
+
 		entries, err := os.ReadDir(dir)
 		if err != nil {
 			fmt.Printf("⚠️ Cannot read dir: %s\n", dir)
 			return
 		}
- 
+
 		for _, e := range entries {
 			full := filepath.Join(dir, e.Name())
- 
+
 			// =========================
 			// NEW: Detect and reject symlinks
 			// =========================
@@ -130,7 +130,7 @@ func cleanupTargets(cfg *Config) error {
 				fmt.Printf("⚠️ Cannot stat: %s\n", full)
 				continue
 			}
- 
+
 			// If it's a symlink, skip it or remove just the symlink
 			if info.Mode()&os.ModeSymlink != 0 {
 				fmt.Printf("⚠️ Skipping symlink: %s\n", full)
@@ -139,7 +139,7 @@ func cleanupTargets(cfg *Config) error {
 				// fmt.Println("🗑 Removed symlink:", full)
 				continue
 			}
- 
+
 			// =========================
 			// 🚫 Skip critical paths inside
 			// =========================
@@ -147,7 +147,7 @@ func cleanupTargets(cfg *Config) error {
 				fmt.Printf("🚫 Skipping critical path: %s\n", full)
 				continue
 			}
- 
+
 			// =========================
 			// ⏭ Skip config.json
 			// =========================
@@ -155,7 +155,7 @@ func cleanupTargets(cfg *Config) error {
 				fmt.Println("⏭ Skip config.json:", full)
 				continue
 			}
- 
+
 			// =========================
 			// 📂 Process based on type
 			// =========================
@@ -168,7 +168,7 @@ func cleanupTargets(cfg *Config) error {
 					fmt.Printf("⚠️ Skipping non-regular file: %s\n", full)
 					continue
 				}
- 
+
 				f, err := os.OpenFile(full, os.O_WRONLY|os.O_TRUNC, 0644)
 				if err == nil {
 					f.Close()
@@ -186,7 +186,7 @@ func cleanupTargets(cfg *Config) error {
 			}
 		}
 	}
- 
+
 	// =========================
 	// 🚀 APPLY CLEANUP
 	// =========================
@@ -203,7 +203,7 @@ func cleanupTargets(cfg *Config) error {
 			fmt.Println("♻️ Output file reset:", absOutput)
 		}
 	}
- 
+
 	fmt.Println("✅ Cleanup done (with enhanced security)")
 	return nil
 }
