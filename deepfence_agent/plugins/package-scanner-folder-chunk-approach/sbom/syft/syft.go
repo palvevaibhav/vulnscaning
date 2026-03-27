@@ -41,7 +41,7 @@ const (
 	registryPrefix = "registry:"
 )
 
-const MaxDirSize int64 = 50 * 1024 * 1024 * 1024;
+const MaxDirSize int64 = 50 * 1024 * 1024 * 1024
 
 type ContainerScan struct {
 	containerID string
@@ -107,7 +107,7 @@ func runCommand(cmd *exec.Cmd) (*bytes.Buffer, error) {
 	return &stdout, nil
 }
 
-func syftBuildArgs(config utils.Config, syftArgs []string, syftEnv []string) ([]string, []string){
+func syftBuildArgs(config utils.Config, syftArgs []string, syftEnv []string) ([]string, []string) {
 	if config.ScanType != "" && config.ScanType != "all" {
 		isRegistry := config.RegistryID != "" && config.NodeType == utils.NodeTypeImage
 		syftArgs = append(syftArgs, buildCatalogersArg(config.ScanType, isRegistry)...)
@@ -254,8 +254,6 @@ func runSBOM(ctx context.Context, dir string, output string, config utils.Config
 		"-q",
 	}
 
-
-
 	cmd := exec.CommandContext(ctx, config.SyftBinPath, syftArgs...)
 
 	stdout, err := runCommand(cmd)
@@ -286,12 +284,11 @@ func ProcessDir(ctx context.Context, dir string, root string, tmpRoot string, co
 		return "", err
 	}
 
-
 	output := filepath.Join(tmpDir, utils.RandomString(10)+".json")
 
 	// CASE: < 50GB
 	if size < MaxDirSize {
-		
+
 		runSyft(ctx, config, []string{"packages", "dir:" + tmpDir, "-o", "json=" + output, "-q"}, []string{}, 0, []error{nil}, output)
 		err := runSBOM(ctx, dir, output, config)
 		return output, err
@@ -357,20 +354,9 @@ func GenerateSBOM(ctx context.Context, config utils.Config) ([]byte, error) {
 		return generateNormalSBOM(ctx, config)
 	}
 
-
 	root := strings.TrimPrefix(config.Source, "dir:")
-	tmpRoot, err := os.MkdirTemp("", "sbom-root-*")
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(tmpRoot)
-
-	finalSBOM, err := ProcessDir(ctx, root, root, tmpRoot, config)
-	if err != nil {
-		return nil, err
-	}
-
-	return os.ReadFile(finalSBOM)
+	// Use chunked Syft for directory scans
+	return RunChunkedSyft(ctx, config, root)
 }
 
 func buildCatalogersArg(scanType string, isRegistry bool) []string {
@@ -404,4 +390,3 @@ func buildCatalogersArg(scanType string, isRegistry bool) []string {
 	}
 	return syftArgs
 }
-
