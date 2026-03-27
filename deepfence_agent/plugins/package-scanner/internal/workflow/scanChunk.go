@@ -92,7 +92,7 @@ func printProgressBar(percent float64) {
 
 // ---------------- RUN SYFT ON CHUNK ----------------
 
-func RunSyftOnChunkDir(chunkName string, mountRoot string, outputDir string, syftBinPath string, index, total int) error {
+func RunSyftOnChunkDir(chunkName string, mountRoot string, outputDir string, index, total int) error {
 
 	start := time.Now()
 	chunkPath := filepath.Join(mountRoot, chunkName)
@@ -135,13 +135,9 @@ func RunSyftOnChunkDir(chunkName string, mountRoot string, outputDir string, syf
 	}
 
 	// 🔍 Log full command for debugging
-	if strings.TrimSpace(syftBinPath) == "" {
-		syftBinPath = "syft"
-	}
+	fmt.Printf("\n🔍 Running: syft %s\n", strings.Join(args, " "))
 
-	fmt.Printf("\n🔍 Running: %s %s\n", syftBinPath, strings.Join(args, " "))
-
-	cmd := exec.Command(syftBinPath, args...)
+	cmd := exec.Command("syft", args...)
 	out, err := cmd.CombinedOutput()
 
 	// ✅ Stop progress
@@ -252,7 +248,7 @@ func RunSyftProcess(cfg *Config) error {
 				return
 			}
 
-			if err := RunSyftOnChunkDir(name, mountRoot, outputDir, cfg.SyftBinPath, idx+1, totalChunks); err != nil {
+			if err := RunSyftOnChunkDir(name, mountRoot, outputDir, idx+1, totalChunks); err != nil {
 				mu.Lock()
 				errs = append(errs, err)
 				mu.Unlock()

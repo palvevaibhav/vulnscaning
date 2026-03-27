@@ -18,7 +18,6 @@ type Config struct {
 	MountWorkers    int
 	SyftOutputDir   string
 	FinalOutputFile string
-	SyftBinPath     string
 
 	// Deepfence / registry info
 	DeepfenceKey          string

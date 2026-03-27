@@ -9,9 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -58,39 +56,16 @@ func processRegistryMessage(rInterface interface{}) interface{} {
 		return false
 	}
 
-	source := strings.TrimPrefix(r.Source, "dir:")
-	if source == "" {
-		log.Error("empty source path for chunk workflow")
-		return false
-	}
-
-	scanRef := r.ScanID
-	if scanRef == "" {
-		scanRef = utils.RandomString(12)
-	}
-	workDir := filepath.Join(os.TempDir(), "package-scanner-chunks", scanRef)
-	if err := os.MkdirAll(workDir, 0o755); err != nil {
-		log.Errorf("failed to create workflow work dir %s: %v", workDir, err)
-		return false
-	}
-
-	outputFile := filepath.Join(workDir, "chunks.json")
-	finalOutputFile := r.Output
-	if finalOutputFile == "" {
-		finalOutputFile = filepath.Join(workDir, "final-sbom.json")
-	}
-
 	// Map full utils.Config into workflow.Config
 	cfg := &workflow.Config{
-		RootPath:        source,
-		OutputFile:      outputFile,
-		Workers:         getIntEnv("PACKAGE_SCAN_WORKERS", 8),
-		ChunkSizeGB:     getInt64Env("PACKAGE_SCAN_CHUNK_SIZE_GB", 1),
-		MountRoot:       filepath.Join(workDir, "mounted_chunks"),
-		MountWorkers:    getIntEnv("PACKAGE_SCAN_MOUNT_WORKERS", 8),
-		SyftOutputDir:   filepath.Join(workDir, "sbom-output"),
-		FinalOutputFile: finalOutputFile,
-		SyftBinPath:     r.SyftBinPath,
+		RootPath:        r.Source,
+		OutputFile:      r.Output,              // existing Output
+		Workers:         8,                     // default, can be mapped from r if needed
+		ChunkSizeGB:     1,                     // default chunk size
+		MountRoot:       "/tmp/mounted_chunks", // default mount path
+		MountWorkers:    8,                     // default
+		SyftOutputDir:   "./sbom-output",
+		FinalOutputFile: r.Output, // you can also customize final output
 
 		// Preserve all Deepfence/management info
 		DeepfenceKey:          r.DeepfenceKey,
