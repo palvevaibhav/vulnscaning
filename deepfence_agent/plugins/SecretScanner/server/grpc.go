@@ -72,7 +72,6 @@ func (s *gRPCServer) FindSecretInfo(c context.Context, r *pb.FindRequest) (*pb.F
 }
 
 func RunServer(socket_path string, plugin_name string) error {
-
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)
 

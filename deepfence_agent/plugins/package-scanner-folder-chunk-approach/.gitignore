@@ -1,0 +1,10 @@
+package-scanner
+*.sock
+.idea
+vendor
+proto
+.vscode/
+.DS_Store
+tools/grype-bin/grype*
+tools/syft-bin/syft*
+dist/

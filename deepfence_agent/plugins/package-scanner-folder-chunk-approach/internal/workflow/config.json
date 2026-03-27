@@ -1,0 +1,10 @@
+{
+  "root_path": "/home/vaibhav",
+  "output_file": "chunks.json",
+  "workers": 16,
+  "chunk_size_gb": 1,
+  "mount_root": "/home/vaibhav/finalSyftTest/mounted_chunks",
+  "mount_workers": 8,
+  "syft_output_dir": "./sbom-output",
+  "final_output_file": "/tmp/combined-sbom.json"
+}

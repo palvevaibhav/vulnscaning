@@ -177,10 +177,10 @@ func runOnce(format string) {
 		if len(scanId) == 0 {
 			scanId = fmt.Sprintf("%s-%d", node_id, time.Now().UnixMilli())
 		}
-		log.Info("scanning on going %s", scanId)
+		log.Infof("scanning on going %s", scanId)
 		//pub.IngestScanProgressStatus(scanId, "SecretScan", "stage2")
 		pub.IngestSecretScanResults(scanId, result.GetSecrets())
-		log.Info("scan id %s", scanId)
+		log.Infof("scan id %s", scanId)
 	}
 	log.Info("scanning on going")
 	counts := output.CountBySeverity(result.GetSecrets())
@@ -237,7 +237,7 @@ func main() {
 	if *socketPath != "" {
 		err := server.RunServer(*socketPath, PLUGIN_NAME)
 		if err != nil {
-			log.Fatal("main: failed to serve: %v", err)
+			log.Fatalf("main: failed to serve: %v", err)
 		}
 	} else {
 		runOnce(*core.GetSession().Options.OutFormat)

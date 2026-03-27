@@ -51,7 +51,7 @@ type ContainerScan struct {
  namespace   string
 }
 
-func (containerScan *ContainerScan) exportFileSystemTar() error {
+/*func (containerScan *ContainerScan) exportFileSystemTar() error {
 	log.Infof("ContainerScan: %+v", containerScan)
 
 	// Auto-detect underlying container runtime
@@ -87,6 +87,88 @@ func (containerScan *ContainerScan) exportFileSystemTar() error {
          return err
 	   }
 	   return nil
+}*/
+
+func GetContainerFileSystemPath(containerId string) ([]byte, error) {
+	return exec.Command(
+		"docker",
+		"inspect",
+		strings.TrimSpace(containerId),
+		"--format",
+		"{{ .GraphDriver.Data.MergedDir }}",
+	).Output()
+}
+
+func (containerScan *ContainerScan) exportFileSystemTar() (string, error) {
+
+	log.Infof("ContainerScan: %+v", containerScan)
+
+	// Auto detect runtime
+	containerRuntime, endpoint, err := vessel.AutoDetectRuntime()
+	if err != nil {
+		return "", err
+	}
+
+	var containerRuntimeInterface vessel.Runtime
+
+	switch containerRuntime {
+	case vesselConstants.DOCKER:
+		containerRuntimeInterface = dockerRuntime.New(endpoint)
+
+	case vesselConstants.CONTAINERD:
+		containerRuntimeInterface = containerdRuntime.New(endpoint)
+
+	case vesselConstants.CRIO:
+		containerRuntimeInterface = crioRuntime.New(endpoint)
+
+	case vesselConstants.PODMAN:
+		containerRuntimeInterface = podmanRuntime.New(endpoint)
+	}
+
+	if containerRuntimeInterface == nil {
+		log.Error("Error: Could not detect container runtime")
+		return "", fmt.Errorf("failed to detect container runtime")
+	}
+
+	// 🚀 Docker direct filesystem scan
+	if containerRuntime == vesselConstants.DOCKER {
+
+		containerPathBytes, err := GetContainerFileSystemPath(containerScan.containerID)
+		if err != nil {
+			return "", err
+		}
+
+		containerPath := strings.TrimSpace(string(containerPathBytes))
+		return containerPath, nil
+	}
+
+	// Other runtimes → tar extraction
+	err = containerRuntimeInterface.ExtractFileSystemContainer(
+		containerScan.containerID,
+		containerScan.namespace,
+		containerScan.tempDir+".tar",
+	)
+
+	if err != nil {
+		log.Errorf("errored: %s", err)
+		return "", err
+	}
+
+	tarCmd := exec.Command(
+		"tar",
+		"-xf",
+		strings.TrimSpace(containerScan.tempDir+".tar"),
+		"-C",
+		containerScan.tempDir,
+	)
+
+	stdout, err := runCommand(tarCmd)
+	if err != nil {
+		log.Errorf("error: %s output: %s", err, stdout.String())
+		return "", err
+	}
+
+	return "", nil
 }
 
 func runCommand(cmd *exec.Cmd) (*bytes.Buffer, error) {
@@ -178,13 +260,25 @@ func GenerateSBOM(ctx context.Context, config utils.Config) ([]byte, error) {
    } else {
     containerScan = ContainerScan{containerID: config.ContainerID, tempDir: tmpDir, namespace: "default"}
    }
+   // err = containerScan.exportFileSystemTar()
+   // if err != nil {
+   //  log.Error(err)
+   //  return nil, err
+   // }
+   // syftArgs[1] = "dir:" + tmpDir
 
-   err = containerScan.exportFileSystemTar()
+   tempPath, err := containerScan.exportFileSystemTar()
    if err != nil {
-    log.Error(err)
-    return nil, err
+      log.Error(err)
+      return nil, err
    }
-   syftArgs[1] = "dir:" + tmpDir
+
+   if tempPath != "" {
+      syftArgs[1] = "dir:/fenced/mnt/host" + tempPath
+   } else {
+      syftArgs[1] = "dir:" + tmpDir
+   }   
+
   }
  }
 

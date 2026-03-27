@@ -3,6 +3,7 @@ package scan
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/deepfence/SecretScanner/core"
@@ -22,6 +23,17 @@ type ContainerScan struct {
 	tempDir     string
 	namespace   string
 	numSecrets  uint
+	mergedDir   string
+}
+
+func GetContainerFileSystemPath(containerId string) ([]byte, error) {
+	return exec.Command(
+		"docker",
+		"inspect",
+		strings.TrimSpace(containerId),
+		"--format",
+		"{{ .GraphDriver.Data.MergedDir }}",
+	).Output()
 }
 
 // Function to retrieve contents of container
@@ -29,11 +41,11 @@ type ContainerScan struct {
 // containerScan - Structure with details of the container to scan
 // @returns
 // Error - Errors, if any. Otherwise, returns nil
-func (containerScan *ContainerScan) extractFileSystem() error {
+func (containerScan *ContainerScan) extractFileSystem() (string, error) {
 	// Auto-detect underlying container runtime
 	containerRuntime, endpoint, err := vessel.AutoDetectRuntime()
 	if err != nil {
-		return err
+		return "", err
 	}
 	var containerRuntimeInterface vessel.Runtime
 	switch containerRuntime {
@@ -50,20 +62,30 @@ func (containerScan *ContainerScan) extractFileSystem() error {
 		log.Error("Error: Could not detect container runtime")
 		os.Exit(1)
 	}
+	
+	if containerRuntime == vesselConstants.DOCKER {
+		containerPathBytes, err := GetContainerFileSystemPath(containerScan.containerId)
+		if err != nil {
+			return "", err
+		}
+		containerPath := strings.TrimSpace(string(containerPathBytes))
+		return containerPath, nil
+	}
+
 	err = containerRuntimeInterface.ExtractFileSystemContainer(
 		containerScan.containerId, containerScan.namespace,
 		containerScan.tempDir+".tar")
 
 	if err != nil {
-		return err
+		return "", err
 	}
 	runCommand("mkdir", containerScan.tempDir)
 	_, stdErr, retVal := runCommand("tar", "-xf", containerScan.tempDir+".tar", "-C"+containerScan.tempDir)
 	if retVal != 0 {
-		return errors.New(stdErr)
+		return "", errors.New(stdErr)
 	}
 	runCommand("rm", containerScan.tempDir+".tar")
-	return nil
+	return "", nil
 }
 
 // Function to scan extracted layers of container file system for secrets file by file
@@ -74,16 +96,32 @@ func (containerScan *ContainerScan) extractFileSystem() error {
 // Error - Errors, if any. Otherwise, returns nil
 func (containerScan *ContainerScan) scan(scanCtx *tasks.ScanContext) ([]output.SecretFound, error) {
 	var isFirstSecret bool = true
+	// secrets, err := ScanSecretsInDir("", containerScan.mergedDir, containerScan.mergedDir,
+	// 	&isFirstSecret, scanCtx)
 
-	secrets, err := ScanSecretsInDir("", containerScan.tempDir, containerScan.tempDir,
-		&isFirstSecret, scanCtx)
+	var secrets []output.SecretFound
+	var err error
+
+	if containerScan.mergedDir != "" {
+		secrets, err = ScanSecretsInDir("", containerScan.mergedDir, containerScan.mergedDir, &isFirstSecret, scanCtx)
+	} else {
+		secrets, err = ScanSecretsInDir("", containerScan.tempDir, containerScan.tempDir, &isFirstSecret, scanCtx)
+	}
+
 	if err != nil {
 		log.Errorf("findSecretsInContainer: %s", err)
 		return nil, err
 	}
 
+	var tempPath string
+	if containerScan.mergedDir != "" {
+		tempPath = containerScan.mergedDir
+	} else {
+		tempPath = containerScan.tempDir
+	}
+
 	for _, secret := range secrets {
-		secret.CompleteFilename = strings.Replace(secret.CompleteFilename, containerScan.tempDir, "", 1)
+		secret.CompleteFilename = strings.Replace(secret.CompleteFilename, tempPath , "", 1)
 	}
 
 	return secrets, nil
@@ -97,10 +135,16 @@ func (containerScan *ContainerScan) scan(scanCtx *tasks.ScanContext) ([]output.S
 // Error - Errors, if any. Otherwise, returns nil
 func (containerScan *ContainerScan) scanStream(scanCtx *tasks.ScanContext) (chan output.SecretFound, error) {
 	var isFirstSecret bool = true
+	// stream, err := ScanSecretsInDirStream("", containerScan.tempDir, containerScan.tempDir, &isFirstSecret, scanCtx)
+	var stream chan output.SecretFound
+	var err error
 
-	stream, err := ScanSecretsInDirStream("", containerScan.tempDir,
-		containerScan.tempDir, &isFirstSecret, scanCtx)
-
+	if containerScan.mergedDir != "" {
+		stream, err = ScanSecretsInDirStream("", containerScan.mergedDir, containerScan.mergedDir, &isFirstSecret, scanCtx)
+	} else {
+		stream, err = ScanSecretsInDirStream("", containerScan.tempDir, containerScan.tempDir, &isFirstSecret, scanCtx)
+	}
+	
 	if err != nil {
 		log.Errorf("findSecretsInContainer: %s", err)
 		return nil, err
@@ -123,13 +167,23 @@ func ExtractAndScanContainer(containerId string, namespace string,
 	}
 	defer core.DeleteTmpDir(tempDir)
 
-	containerScan := ContainerScan{containerId: containerId, tempDir: tempDir, namespace: namespace}
-	err = containerScan.extractFileSystem()
+	containerScan := ContainerScan{containerId: containerId, tempDir: tempDir, namespace: namespace, mergedDir: ""}
+	// err = containerScan.extractFileSystem()
 
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	tempPath, err := containerScan.extractFileSystem();
+	
 	if err != nil {
 		return nil, err
-	}
+	} 
 
+	if tempPath != "" {
+      containerScan.mergedDir = "/fenced/mnt/host" + tempPath
+	} 
+	
 	secrets, err := containerScan.scan(scanCtx)
 
 	if err != nil {
@@ -144,22 +198,29 @@ func ExtractAndScanContainerStream(containerId string, namespace string,
 	if err != nil {
 		return nil, err
 	}
+	containerScan := ContainerScan{containerId: containerId, tempDir: tempDir, namespace: namespace, mergedDir : ""}
+	// err = containerScan.extractFileSystem()
 
-	containerScan := ContainerScan{containerId: containerId, tempDir: tempDir, namespace: namespace}
-	err = containerScan.extractFileSystem()
-
+	// if err != nil {
+	// 	core.DeleteTmpDir(tempDir)
+	// 	return nil, err
+	// }
+	
+	tempPath, err := containerScan.extractFileSystem();
 	if err != nil {
 		core.DeleteTmpDir(tempDir)
 		return nil, err
-	}
+	} 
 
+	if tempPath != "" {
+      containerScan.mergedDir = "/fenced/mnt/host" + tempPath
+	} 
+	
 	stream, err := containerScan.scanStream(scanCtx)
-
 	if err != nil {
 		core.DeleteTmpDir(tempDir)
 		return nil, err
 	}
-
 	res := make(chan output.SecretFound, secret_pipeline_size)
 
 	go func() {

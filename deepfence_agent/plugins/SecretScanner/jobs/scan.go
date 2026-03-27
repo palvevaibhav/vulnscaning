@@ -20,9 +20,8 @@ import (
 var ScanMap sync.Map
 
 func DispatchScan(r *pb.FindRequest) {
-	fmt.Printf("Secret Request ScanId: %v, path: %+v, image: %+v, container: %+v", r.ScanId, r.GetPath(), r.GetImage(), r.GetContainer())
+	log.Infof("[DispatchScan]: Secret Request ScanId: %v, path: %+v, image: %+v, container: %+v", r.ScanId, r.GetPath(), r.GetImage(), r.GetContainer())
 	go func() {
-		fmt.Println("Secrete Scanner reached here DispatchScanstageinner")
 		startScanJob()
 		defer stopScanJob()
 
@@ -30,13 +29,13 @@ func DispatchScan(r *pb.FindRequest) {
 		res, scanCtx := tasks.StartStatusReporter(
 			r.ScanId,
 			func(ss tasks.ScanStatus) error {
-				return writeSecretScanStatus(ss.ScanStatus, ss.ScanId, ss.ScanMessage)
+					return writeSecretScanStatus(ss.ScanStatus, ss.ScanId, ss.ScanMessage)
 			},
 			tasks.StatusValues{
-				IN_PROGRESS: "IN_PROGRESS",
-				CANCELLED:   "CANCELLED",
-				FAILED:      "ERROR",
-				SUCCESS:     "COMPLETE",
+					IN_PROGRESS: "IN_PROGRESS",
+					CANCELLED:   "CANCELLED",
+					FAILED:      "ERROR",
+					SUCCESS:     "COMPLETE",
 			},
 			time.Minute*20,
 		)
@@ -47,43 +46,46 @@ func DispatchScan(r *pb.FindRequest) {
 			ScanMap.Delete(r.ScanId)
 			res <- err
 			close(res)
+			log.Infof("[DispatchScan]: Scan cleanup done for scanId=%v", r.ScanId)
 		}()
 
-		fmt.Println("In-progress secret scan for request: stage2")
+		// Stage2 = scan started
+		log.Info("[DispatchScan]: Stage2 - Scan started")
+		writeSecretScanProgressStatus(r.ScanId, "SecretScan", "stage2")
+
 		var secrets chan output.SecretFound
 
 		if r.GetPath() != "" {
 			var isFirstSecret bool = true
 			secrets, err = scan.ScanSecretsInDirStream("", r.GetPath(), r.GetPath(),
-				&isFirstSecret, scanCtx)
+					&isFirstSecret, scanCtx)
 			if err != nil {
-				return
+					return
 			}
 		} else if r.GetImage() != nil && r.GetImage().Name != "" {
 			secrets, err = scan.ExtractAndScanImageStream(r.GetImage().Name, scanCtx)
 			if err != nil {
-				return
+					return
 			}
 		} else if r.GetContainer() != nil && r.GetContainer().Id != "" {
 			secrets, err = scan.ExtractAndScanContainerStream(r.GetContainer().Id,
-				r.GetContainer().Namespace, scanCtx)
+					r.GetContainer().Namespace, scanCtx)
 			if err != nil {
-				return
+					return
 			}
 		} else {
 			err = fmt.Errorf("Invalid request")
 			return
 		}
-		
-		fmt.Println("Completed secret scan for request: stage2")
+
+		log.Info("[DispatchScan]: Completed secret scan for request: stage2")
 		go func() {
 			writeSecretScanProgressStatus(r.ScanId, "SecretScan", "stage2")
 		}()
-
-		fmt.Println("In-progress secret scan for request: stage3")
+		
 		var prevSecret output.SecretFound
 		var hasPrev bool
-		
+
 		for secret := range secrets {
 			if hasPrev {
 				writeSingleScanData(output.SecretToSecretInfo(prevSecret), r.ScanId, "")
@@ -99,13 +101,14 @@ func DispatchScan(r *pb.FindRequest) {
 		}
 		*/
 
-		fmt.Println("Completed secret scan for request: stage3")
+		log.Info("[DispatchScan]: Completed secret scan for request: stage3")
 		go func() {
 			if hasPrev {
+				log.Info("[DispatchScan]: update stage3 and stage4 in the secrets data")
 				writeSecretScanProgressStatus(r.ScanId, "SecretScan", "stage3")
 				writeSingleScanData(output.SecretToSecretInfo(prevSecret), r.ScanId, "stage4")
 			}else{
-				fmt.Println("Completed secret scan for request: stage4")
+				log.Info("[DispatchScan]: Completed secret scan for request: stage4")
 				writeSecretScanProgressStatus(r.ScanId, "SecretScan", "stage4")
 			}
 		}()
@@ -120,7 +123,6 @@ type SecretScanDoc struct {
 }
 
 func writeMultiScanData(secrets []*pb.SecretInfo, scan_id string) {
-	fmt.Printf("Writing %d secrets to scan file for scan_id: %s\n", len(secrets), scan_id)
 	for _, secret := range secrets {
 		if SecretScanDir == HostMountDir {
 			secret.GetMatch().FullFilename = strings.Replace(secret.GetMatch().GetFullFilename(), SecretScanDir, "", 1)
@@ -129,14 +131,12 @@ func writeMultiScanData(secrets []*pb.SecretInfo, scan_id string) {
 			SecretInfo: *secret,
 			ScanID:     scan_id,
 		}
-		fmt.Printf("writeMultiScanData byteJson value:: %s", scan_id)
 
 		byteJson, err := json.Marshal(secretScanDoc)
 		if err != nil {
 			log.Errorf("Error marshalling json: ", err)
 			continue
 		}
-		fmt.Printf("writeMultiScanData byteJson value: %v", string(byteJson))
 
 		err = writeScanDataToFile(string(byteJson), scanFilename)
 		if err != nil {
@@ -155,14 +155,11 @@ func writeSingleScanData(secret *pb.SecretInfo, scan_id string, progressStatus s
 		ScanID:     scan_id,
 		ProgressStatus: progressStatus,
 	}
-
 	byteJson, err := json.Marshal(secretScanDoc)
 	if err != nil {
 		log.Errorf("Error marshalling json: ", err)
 		return
 	}
-
-//	fmt.Printf("writeSingleScanData scanId: %v,  (byteJson value): %v", scan_id, string(byteJson))
 
 	err = writeScanDataToFile(string(byteJson), scanFilename)
 	if err != nil {
@@ -172,7 +169,7 @@ func writeSingleScanData(secret *pb.SecretInfo, scan_id string, progressStatus s
 }
 
 func writeSecretScanProgressStatus(scanId,scanType, status string) {	
-url := os.Getenv("MGMT_CONSOLE_URL")
+	url := os.Getenv("MGMT_CONSOLE_URL")
 	if url == "" {
 		fmt.Printf("MGMT_CONSOLE_URL not set")
 		return
@@ -197,7 +194,8 @@ url := os.Getenv("MGMT_CONSOLE_URL")
 		fmt.Printf("DEEPFENCE_KEY not set")
 		return
 	}
-	fmt.Printf("console_url: %v, port: %v, key: %v", url, port, apiToken)
+
+	// fmt.Printf("console_url: %v, port: %v, key: %v", url, port, apiToken)
 	pub, err := output.NewPublisher(url, port, apiToken)
 	if err != nil {
 		log.Error(err.Error())
@@ -205,8 +203,9 @@ url := os.Getenv("MGMT_CONSOLE_URL")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
 	err = pub.IngestScanProgressStatus(ctx, scanId, scanType, status)
 	if err != nil {
-		log.Errorf("Error in sending scan progress status: %v", err)
+		log.Errorf("[writeSecretScanProgressStatus]: Error in sending scan progress status: %v", err)
 	}	
 }

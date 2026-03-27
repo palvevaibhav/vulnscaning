@@ -72,6 +72,7 @@ type UnsafeSecretScannerServer interface {
 }
 
 func RegisterSecretScannerServer(s grpc.ServiceRegistrar, srv SecretScannerServer) {
+	fmt.Println("[RegisterSecretScannerServer] inside function")
 	s.RegisterService(&SecretScanner_ServiceDesc, srv)
 }
 
@@ -93,7 +94,6 @@ func _SecretScanner_FindSecretInfo_Handler(srv interface{}, ctx context.Context,
 		fmt.Println("SecretScanner reached: STAGE 2 req base functions")
 		return srv.(SecretScannerServer).FindSecretInfo(ctx, req.(*FindRequest))
 	}
-	fmt.Println("🚀 Passing request to interceptor")
 	return interceptor(ctx, in, info, handler)
 }
 

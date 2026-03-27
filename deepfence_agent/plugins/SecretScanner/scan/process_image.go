@@ -172,8 +172,9 @@ func ScanSecretsInDir(layer string, baseDir string, fullDir string,
 	numSecrets := uint(0)
 
 	walkErr := filepath.WalkDir(fullDir, func(path string, f os.DirEntry, err error) error {
+		
 		if err != nil {
-			log.Debugf("Error in filepath.Walk: %s", err)
+			log.Errorf("Error in filepath.Walk: %s", err)
 			return err
 		}
 
@@ -278,18 +279,21 @@ func ScanSecretsInDir(layer string, baseDir string, fullDir string,
 // Error - Errors if any. Otherwise, returns nil
 func ScanSecretsInDirStream(layer string, baseDir string, fullDir string,
 	isFirstSecret *bool, scanCtx *tasks.ScanContext) (chan output.SecretFound, error) {
-
 	res := make(chan output.SecretFound, secret_pipeline_size)
 
 	matchedRuleSet := map[uint]uint{}
 	numSecrets := uint(0)
 
-	if layer != "" {
+	// if layer != ""  {
+	// 	core.UpdateDirsPermissionsRW(fullDir)
+	// }
+
+	// Skip permission change if baseDir is under /fenced/mnt/host
+	if layer != "" && !strings.HasPrefix(baseDir, "/fenced/mnt/host") {
 		core.UpdateDirsPermissionsRW(fullDir)
 	}
 
 	go func() {
-
 		defer close(res)
 		session := core.GetSession()
 		maxFileSize := *session.Options.MaximumFileSize * 1024
@@ -301,6 +305,7 @@ func ScanSecretsInDirStream(layer string, baseDir string, fullDir string,
 
 			err = scanCtx.Checkpoint("walking in directories")
 			if err != nil {
+				log.Errorf("[ExtractAndScanContainerStream][ScanSecretsInDirStream]: Checkpoint failed path=%s err=%v", path, err)
 				return err
 			}
 
@@ -329,7 +334,7 @@ func ScanSecretsInDirStream(layer string, baseDir string, fullDir string,
 
 			finfo, err := f.Info()
 			if err != nil {
-				log.Warnf("Skipping %v as info could not be retrieved: %v", path, err)
+				log.Warnf("[ExtractAndScanContainerStream][ScanSecretsInDirStream]: Skipping %v as info could not be retrieved: %v", path, err)
 				return nil
 			}
 
@@ -341,7 +346,7 @@ func ScanSecretsInDirStream(layer string, baseDir string, fullDir string,
 
 			relPath, err := filepath.Rel(filepath.Join(baseDir, layer), file.Path)
 			if err != nil {
-				log.Warnf("scanSecretsInDir: Couldn't remove prefix of path: %s %s %s",
+				log.Warnf("[ExtractAndScanContainerStream][ScanSecretsInDirStream]: scanSecretsInDir: Couldn't remove prefix of path: %s %s %s",
 					baseDir, layer, file.Path)
 				relPath = file.Path
 			}
@@ -350,14 +355,13 @@ func ScanSecretsInDirStream(layer string, baseDir string, fullDir string,
 			if layer != "" {
 				err = os.Chmod(file.Path, 0600)
 				if err != nil {
-					log.Errorf("scanSecretsInDir changine file permission: %s", err)
+					log.Errorf("[ExtractAndScanContainerStream][ScanSecretsInDirStream]: scanSecretsInDir changine file permission: %s", err)
 				}
 			}
 			secrets, err := scanFile(file.Path, relPath, file.Filename, file.Extension, layer, &numSecrets, matchedRuleSet)
 
 			if err != nil {
-				log.Infof("relPath: %s, Filename: %s, Extension: %s, layer: %s", relPath, file.Filename, file.Extension, layer)
-				log.Errorf("scanSecretsInDir: %s", err)
+				log.Errorf("[ExtractAndScanContainerStream][ScanSecretsInDirStream]: scanSecretsInDir: %s", err)
 			} else {
 				if len(secrets) > 0 {
 					for i := range secrets {
@@ -367,20 +371,22 @@ func ScanSecretsInDirStream(layer string, baseDir string, fullDir string,
 			}
 
 			secrets = signature.MatchSimpleSignatures(relPath, file.Filename, file.Extension, layer, &numSecrets)
+			
 			for i := range secrets {
 				res <- secrets[i]
 			}
 			// Don't report secrets if number of secrets exceeds MAX value
 			if numSecrets >= *session.Options.MaxSecrets {
+				// log.Infof("[ExtractAndScanContainerStream][ScanSecretsInDirStream]: Max secrets reached count=%v", numSecrets)
 				return maxSecretsExceeded
 			}
 			return nil
 		})
 		if walkErr != nil {
 			if walkErr == maxSecretsExceeded {
-				log.Warnf("filepath.Walk: %s", walkErr)
+				log.Warnf("[ExtractAndScanContainerStream][ScanSecretsInDirStream]: filepath.Walk: %s", walkErr)
 			} else {
-				log.Errorf("Error in filepath.Walk: %s", walkErr)
+				log.Errorf("[ExtractAndScanContainerStream][ScanSecretsInDirStream]: Error in filepath.Walk: %s", walkErr)
 			}
 		}
 	}()

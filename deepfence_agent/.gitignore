@@ -1,6 +1,6 @@
-*.pyc
-.project
-.pydevproject
-.idea/
-.vscode/
-.DS_Store
+# Ignore all tar files
+*.tar
+*.tar.gz
+*.tgz
+
+**/vendor/
