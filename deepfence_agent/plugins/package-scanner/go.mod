@@ -2,7 +2,7 @@ module github.com/deepfence/package-scanner
 
 go 1.20
 
-replace github.com/deepfence/agent-plugins-grpc => ./agent-plugins-grpc/
+replace github.com/deepfence/agent-plugins-grpc => ../agent-plugins-grpc
 
 replace github.com/deepfence/golang_deepfence_sdk/utils => ../../../golang_deepfence_sdk/utils/
 
@@ -91,6 +91,7 @@ require (
 	golang.org/x/sync v0.4.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
+	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.10.0 // indirect
 	google.golang.org/genproto v0.0.0-20231002182017-d307bd883b97 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231002182017-d307bd883b97 // indirect

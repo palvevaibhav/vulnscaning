@@ -8,9 +8,7 @@ import (
 )
 
 var (
-	//go:embed syft-bin/syft.bin
 	SyftBin []byte
 
-	//go:embed grype-bin/grype.bin
 	GrypeBin []byte
 )

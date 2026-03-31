@@ -13,14 +13,6 @@ import (
 	"time"
 
 	"github.com/deepfence/package-scanner/utils"
-	"github.com/deepfence/vessel"
-	containerdRuntime "github.com/deepfence/vessel/containerd"
-	crioRuntime "github.com/deepfence/vessel/crio"
-	dockerdRuntime "github.com/deepfence/vessel/dockerd"
-	podmanRuntime "github.com/deepfence/vessel/podman"
-	vesselConstants "github.com/deepfence/vessel/utils"
-	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -195,6 +187,37 @@ func syftBuildArgs(config utils.Config, syftArgs []string, syftEnv []string) ([]
 	return syftArgs, syftEnv
 }
 
+func buildCatalogersArg(scanType string, isRegistry bool) []string {
+	syftArgs := []string{}
+	scanTypes := strings.Split(scanType, ",")
+	for _, s := range scanTypes {
+		switch s {
+		case utils.ScanTypeBase:
+			syftArgs = append(syftArgs, "--catalogers", "dpkgdb-cataloger", "--catalogers", "rpm-db-cataloger", "--catalogers", "rpm-file-cataloger", "--catalogers", "apkdb-cataloger", "--catalogers", "alpmdb-cataloger", "--catalogers", "linux-kernel-cataloger")
+		case utils.ScanTypeRuby:
+			syftArgs = append(syftArgs, "--catalogers", "ruby-gemfile-cataloger", "--catalogers", "ruby-gemspec-cataloger")
+		case utils.ScanTypePython:
+			syftArgs = append(syftArgs, "--catalogers", "python-index-cataloger", "--catalogers", "python-package-cataloger")
+		case utils.ScanTypeJavaScript:
+			syftArgs = append(syftArgs, "--catalogers", "javascript-lock-cataloger", "--catalogers", "javascript-package-cataloger")
+		case utils.ScanTypePhp:
+			syftArgs = append(syftArgs, "--catalogers", "php-composer-installed-cataloger", "--catalogers", "php-composer-lock-cataloger")
+		case utils.ScanTypeGolang:
+			syftArgs = append(syftArgs, "--catalogers", "go-mod-file-cataloger")
+		case utils.ScanTypeGolangBinary:
+			syftArgs = append(syftArgs, "--catalogers", "go-module-binary-cataloger")
+		case utils.ScanTypeJava:
+			syftArgs = append(syftArgs, "--catalogers", "java-cataloger", "--catalogers", "java-gradle-lockfile-cataloger", "--catalogers", "java-pom-cataloger")
+		case utils.ScanTypeRust:
+			syftArgs = append(syftArgs, "--catalogers", "rust-cargo-lock-cataloger")
+		case utils.ScanTypeRustBinary:
+			syftArgs = append(syftArgs, "--catalogers", "cargo-auditable-binary-cataloger")
+		case utils.ScanTypeDotnet:
+			syftArgs = append(syftArgs, "--catalogers", "dotnet-deps-cataloger")
+		}
+	}
+	return syftArgs
+}
 // ---------------- MAIN ----------------
 func RunSyftProcess(cfg *Config) error {
 	start := time.Now()
