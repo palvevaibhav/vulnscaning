@@ -1,5 +1,4 @@
 package workflow
-
 import (
 	"bufio"
 	"encoding/json"
@@ -11,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"github.com/deepfence/package-scanner/utils"
 )
 
 // ==============================
@@ -163,7 +163,7 @@ func worker(id int, jobs <-chan MountJob, wg *sync.WaitGroup) {
 // ==============================
 // MAIN RUN FUNCTION (FIXED)
 // ==============================
-func RunMountProcess(cfg *Config) error {
+func RunMountProcess(cfg *utils.Config) error {
 
 	// Reset counters (IMPORTANT)
 	atomic.StoreInt64(&totalJobs, 0)

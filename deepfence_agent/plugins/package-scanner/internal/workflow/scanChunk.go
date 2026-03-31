@@ -1,5 +1,4 @@
 package workflow
-
 import (
 	"encoding/json"
 	"fmt"
@@ -9,10 +8,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
+	"sync"
 
 	"github.com/deepfence/package-scanner/utils"
+
 )
 
 const (
@@ -22,7 +22,7 @@ const (
 
 // ---------------- STRUCT ----------------
 
-type ChunkNodeInfo struct {
+type ChunkNodeInfo  struct {
 	Path string `json:"path"`
 	Size int64  `json:"size"`
 }
@@ -59,8 +59,8 @@ func getNfsMountsDirs() []string {
 
 // ---------------- LOAD JSON ----------------
 
-func LoadChunks(file string) (map[string][]ChunkNodeInfo, error) {
-	var data map[string][]ChunkNodeInfo
+func LoadChunks(file string) (map[string][]ChunkNodeInfo , error) {
+	var data map[string][]ChunkNodeInfo 
 
 	content, err := os.ReadFile(file)
 	if err != nil {
@@ -129,6 +129,8 @@ func RunSyftOnChunkDir(chunkName string, mountRoot string, outputDir string, ind
 	// 🔍 Log full command for debugging
 	fmt.Printf("\n🔍 Running: syft %s\n", strings.Join(args, " "))
 
+	
+
 	cmd := exec.Command("syft", args...)
 	out, err := cmd.CombinedOutput()
 
@@ -158,7 +160,7 @@ func RunSyftOnChunkDir(chunkName string, mountRoot string, outputDir string, ind
 	return nil
 }
 
-func syftBuildArgs(config utils.Config, syftArgs []string, syftEnv []string) ([]string, []string) {
+func syftBuildArgs(config utils.Config, syftArgs []string, syftEnv []string) ([]string, []string){
 	if config.ScanType != "" && config.ScanType != "all" {
 		isRegistry := config.RegistryID != "" && config.NodeType == utils.NodeTypeImage
 		syftArgs = append(syftArgs, buildCatalogersArg(config.ScanType, isRegistry)...)
@@ -186,7 +188,6 @@ func syftBuildArgs(config utils.Config, syftArgs []string, syftEnv []string) ([]
 
 	return syftArgs, syftEnv
 }
-
 func buildCatalogersArg(scanType string, isRegistry bool) []string {
 	syftArgs := []string{}
 	scanTypes := strings.Split(scanType, ",")
@@ -218,8 +219,9 @@ func buildCatalogersArg(scanType string, isRegistry bool) []string {
 	}
 	return syftArgs
 }
+
 // ---------------- MAIN ----------------
-func RunSyftProcess(cfg *Config) error {
+func RunSyftProcess(cfg *utils.Config) error {
 	start := time.Now()
 	jsonFile := cfg.OutputFile
 	outputDir := cfg.SyftOutputDir
@@ -288,3 +290,4 @@ func RunSyftProcess(cfg *Config) error {
 	fmt.Printf("\n🎉 All chunks processed successfully in %s!\n", time.Since(start))
 	return nil
 }
+

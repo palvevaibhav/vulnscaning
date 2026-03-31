@@ -3,12 +3,7 @@
 
 package tools
 
-import (
-	_ "embed"
-)
-
 var (
-	SyftBin []byte
-
+	SyftBin  []byte
 	GrypeBin []byte
 )

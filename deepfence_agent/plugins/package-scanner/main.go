@@ -215,7 +215,7 @@ func main() {
 		}
 	}
 
-	fmt.Println("GOMAXPROCS:", runtime.GOMAXPROCS(0))
+	fmt.Println("GOMAXPROCS:", runtime.GOMAXPROCS(0)) // we have to test this one also to change value 1 2
 	fmt.Println("NumCPU:", runtime.NumCPU())
 //	fmt.Println("Active Threads:", runtime.NumThread())
 	fmt.Println("Active Goroutines:", runtime.NumGoroutine())

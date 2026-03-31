@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
+	"github.com/deepfence/package-scanner/utils"
 )
 
 // 🔍 Get all mounted paths under root
@@ -47,7 +48,7 @@ func lazyUnmount(path string) error {
 	return nil
 }
 
-func unmountChunkFolders(cfg *Config) error {
+func unmountChunkFolders(cfg *utils.Config) error {
 	mountRoot := cfg.MountRoot
 
 	fmt.Println("🔍 Finding mounted paths...")
@@ -86,3 +87,4 @@ func unmountChunkFolders(cfg *Config) error {
 	fmt.Println("\n🎉 Lazy unmount completed!")
 	return nil
 }
+

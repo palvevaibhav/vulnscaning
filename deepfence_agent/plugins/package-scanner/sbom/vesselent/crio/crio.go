@@ -4,23 +4,24 @@ import (
 	"context"
 	"strings"
 
+	crioRuntime "github.com/deepfence/vessel/crio"
 	containerdApi "github.com/containerd/containerd"
 	"github.com/containerd/containerd/namespaces"
-	vesselent "github.com/deepfence/package-scanner/sbom/vesselent"
-	crioRuntime "github.com/deepfence/vessel/crio"
 	vesselConstants "github.com/deepfence/vessel/utils"
 	"github.com/sirupsen/logrus"
+	vesselent "github.com/deepfence/package-scanner/sbom/vesselent"
 )
 
 // You OWN this type, so you can add methods
 type ExtendedCrio struct {
-	*crioRuntime.CRIO
+    *crioRuntime.CRIO
 }
 
 // Constructor
 func New(c *crioRuntime.CRIO) *ExtendedCrio {
-	return &ExtendedCrio{CRIO: c}
+    return &ExtendedCrio{CRIO: c}
 }
+
 
 func (c ExtendedCrio) GetFileSystemPath(containerId string, namespace string) ([]byte, error) {
 	// create a new client connected to the default socket path for containerd

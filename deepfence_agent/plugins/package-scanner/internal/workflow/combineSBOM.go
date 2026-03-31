@@ -1,5 +1,4 @@
 package workflow
-
 import (
 	"encoding/json"
 	"fmt"
@@ -8,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"github.com/deepfence/package-scanner/utils"
 )
 
 // ---------------- STRUCT ----------------
@@ -151,7 +151,7 @@ func combineSBOMs(filePaths []string) (*CombinedSBOM, error) {
 
 // ---------------- MAIN ----------------
 
-func combineSBOMFiles(cfg *Config) error {
+func combineSBOMFiles(cfg *utils.Config) error {
 
 	start := time.Now()
 
@@ -195,3 +195,4 @@ func combineSBOMFiles(cfg *Config) error {
 	fmt.Println("⏱ Time taken:", time.Since(start))
 	return nil
 }
+

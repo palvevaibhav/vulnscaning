@@ -4,14 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Jeffail/tunny"
-	"github.com/deepfence/package-scanner/internal/workflow"
+	"context"
+	"github.com/deepfence/package-scanner/sbom/syft"
 	"github.com/deepfence/package-scanner/utils"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 	"strconv"
-	"time"
 	"strings"
+	"time"
 )
 
 var (
@@ -58,43 +59,50 @@ func processRegistryMessage(rInterface interface{}) interface{} {
 	}
 
 	// Map full utils.Config into workflow.Config
-	cfg := &workflow.Config{
-		RootPath:        r.Source,
-		OutputFile:      r.Output,              // existing Output
-		Workers:         8,                     // default, can be mapped from r if needed
-		ChunkSizeGB:     1,                     // default chunk size
-		MountRoot:       "/tmp/mounted_chunks", // default mount path
-		MountWorkers:    8,                     // default
-		SyftOutputDir:   "./sbom-output",
-		FinalOutputFile: r.Output, // you can also customize final output
+	// cfg := &workflow.Config{
+	// 	RootPath:        r.Source,
+	// 	OutputFile:      r.Output,              // existing Output
+	// 	Workers:         8,                     // default, can be mapped from r if needed
+	// 	ChunkSizeGB:     1,                     // default chunk size
+	// 	MountRoot:       "/tmp/mounted_chunks", // default mount path
+	// 	MountWorkers:    8,                     // default
+	// 	SyftOutputDir:   "./sbom-output",
+	// 	FinalOutputFile: r.Output, // you can also customize final output
 
-		// Preserve all Deepfence/management info
-		DeepfenceKey:          r.DeepfenceKey,
-		ConsoleURL:            r.ConsoleURL,
-		ConsolePort:           r.ConsolePort,
-		ScanType:              r.ScanType,
-		VulnerabilityScan:     r.VulnerabilityScan,
-		ScanID:                r.ScanID,
-		NodeType:              r.NodeType,
-		NodeID:                r.NodeID,
-		HostName:              r.HostName,
-		ImageID:               r.ImageID,
-		ContainerName:         r.ContainerName,
-		KubernetesClusterName: r.KubernetesClusterName,
-		RegistryID:            r.RegistryID,
-	}
+	// 	// Preserve all Deepfence/management info
+	// 	DeepfenceKey:          r.DeepfenceKey,
+	// 	ConsoleURL:            r.ConsoleURL,
+	// 	ConsolePort:           r.ConsolePort,
+	// 	ScanType:              r.ScanType,
+	// 	VulnerabilityScan:     r.VulnerabilityScan,
+	// 	ScanID:                r.ScanID,
+	// 	NodeType:              r.NodeType,
+	// 	NodeID:                r.NodeID,
+	// 	HostName:              r.HostName,
+	// 	ImageID:               r.ImageID,
+	// 	ContainerName:         r.ContainerName,
+	// 	KubernetesClusterName: r.KubernetesClusterName,
+	// 	RegistryID:            r.RegistryID,
+	// }
 
 	start := time.Now()
-	log.Infof("Starting custom workflow for Source: %s, NodeID: %s", r.Source, r.NodeID)
+	log.Infof("Starting chunked Syft scan for Source: %s, NodeID: %s", r.Source, r.NodeID)
 
-	err := workflow.Run(cfg)
+	ctx := context.Background()
+	sbom, err := syft.GenerateSBOM(ctx, r)
 	if err != nil {
-		log.Errorf("Error running custom workflow: %s", err)
+		log.Errorf("Error running chunked Syft: %s", err)
+		return false
+	}
+
+	err = os.WriteFile(r.Output, sbom, 0644)
+	if err != nil {
+		log.Errorf("Error writing SBOM to file: %s", err)
 		return false
 	}
 
 	duration := time.Since(start)
-	log.Infof("✅ Workflow completed for Source: %s, NodeID: %s in %v", r.Source, r.NodeID, duration)
+	log.Infof("✅ Chunked Syft scan completed for Source: %s, NodeID: %s in %v", r.Source, r.NodeID, duration)
 	return true
 }
 

@@ -4,23 +4,24 @@ import (
 	"context"
 	"strings"
 
+	containerdRuntime "github.com/deepfence/vessel/containerd"
 	containerdApi "github.com/containerd/containerd"
 	"github.com/containerd/containerd/namespaces"
-	vesselent "github.com/deepfence/package-scanner/sbom/vesselent"
-	containerdRuntime "github.com/deepfence/vessel/containerd"
 	vesselConstants "github.com/deepfence/vessel/utils"
 	"github.com/sirupsen/logrus"
+	vesselent "github.com/deepfence/package-scanner/sbom/vesselent"
 )
 
 // You OWN this type, so you can add methods
 type ExtendedContainerd struct {
-	*containerdRuntime.Containerd
+    *containerdRuntime.Containerd
 }
 
 // Constructor
 func New(c *containerdRuntime.Containerd) *ExtendedContainerd {
-	return &ExtendedContainerd{Containerd: c}
+    return &ExtendedContainerd{Containerd: c}
 }
+
 
 func (c ExtendedContainerd) GetFileSystemPath(containerId string, namespace string) ([]byte, error) {
 	// create a new client connected to the default socket path for containerd

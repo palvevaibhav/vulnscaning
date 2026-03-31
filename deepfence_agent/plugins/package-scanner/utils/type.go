@@ -39,6 +39,14 @@ type Config struct {
 	KeepSbom              bool           `json:"keep_sbom,omitempty"`
 	RegistryCreds         RegistryCreds  `json:"registry_creds,omitempty"`
 	IsRegistry            bool           `json:"is_registry,omitempty"`
+	RootPath        string 				 `json:"root_path,omitempty"`
+	OutputFile      string 				 `json:"output_file,omitempty"`
+	Workers         int                  `json:"workers,omitempty"`
+	ChunkSizeGB     int64                `json:"chunk_size_gb,omitempty"`
+	MountRoot       string               `json:"mount_root,omitempty"`
+	MountWorkers    int                  `json:"mount_workers,omitempty"`
+	SyftOutputDir   string               `json:"syft_output_dir,omitempty"`
+	FinalOutputFile string               `json:"final_output_file,omitempty"`
 }
 
 type RegistryCreds struct {

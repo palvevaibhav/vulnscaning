@@ -1,6 +1,5 @@
 // Problem:- Large filesystem → millions of files → RAM explosion
 package workflow
-
 import (
 	"encoding/json"
 	"fmt"
@@ -101,12 +100,12 @@ func buildSafe(path, scanRoot string, sem chan struct{}) *Node {
 
 	info, err := os.Lstat(path)
 	if err != nil {
-		fmt.Println("⚠️ Error:", path, err)
+                fmt.Println("⚠️ Error:", path, err)
 		return nil
 	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return nil
-	}
+        if info.Mode() & os.ModeSymlink != 0 {
+	        return nil
+        }
 
 	node := &Node{
 		Path:  path,
@@ -186,7 +185,6 @@ func ComputeSize(node *Node) int64 {
 	node.Size = total
 	return total
 }
-
 type Chunk struct {
 	Nodes []*Node
 	Size  int64
@@ -253,9 +251,9 @@ func StartProgress() chan struct{} {
 				files := atomic.LoadInt64(&totalFiles)
 
 				elapsed := time.Since(start).Seconds()
-				if elapsed == 0 {
-					elapsed = 1
-				}
+                                if elapsed == 0 {
+	                                elapsed = 1
+                                }
 				speed := float64(bytes) / (1024 * 1024 * 1024) / elapsed
 
 				fmt.Printf(
@@ -300,13 +298,13 @@ func SaveChunksToJSON(chunks []Chunk, outputFile string) error {
 
 // ---------------- MAIN ----------------
 
-func RunImprovedScan(root string, outputFile string, workers int, maxChunkSize int64) {
+func RunImprovedScan(root string, outputFile string, workers int, maxChunkSize int64){
 	start := time.Now()
 
 	fmt.Println("🚀 Building SAFE tree (skip + progress + parallel)...")
 
 	done := StartProgress()
-	defer close(done)
+        defer close(done)
 
 	tree := BuildTreeParallel(root, workers)
 	fmt.Println()
@@ -317,7 +315,7 @@ func RunImprovedScan(root string, outputFile string, workers int, maxChunkSize i
 	fmt.Printf("📊 Total Size: %.2f GB\n", float64(total)/(1024*1024*1024))
 
 	fmt.Println("📦 Creating chunks...")
-	chunks := ChunkTree(tree, maxChunkSize)
+        chunks := ChunkTree(tree, maxChunkSize)
 
 	fmt.Printf("\n📦 Total Chunks: %d\n\n", len(chunks))
 
@@ -338,3 +336,4 @@ func RunImprovedScan(root string, outputFile string, workers int, maxChunkSize i
 
 	fmt.Println("\n⏱ Total Time:", time.Since(start))
 }
+

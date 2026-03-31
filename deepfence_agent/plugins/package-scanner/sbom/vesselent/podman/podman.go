@@ -4,22 +4,23 @@ import (
 	"os/exec"
 	"strings"
 
-	vesselent "github.com/deepfence/package-scanner/sbom/vesselent"
 	podmanRuntime "github.com/deepfence/vessel/podman"
+	vesselent "github.com/deepfence/package-scanner/sbom/vesselent"
 )
 
 // You OWN this type, so you can add methods
 type ExtendedPodman struct {
-	*podmanRuntime.Podman
+    *podmanRuntime.Podman
 }
 
 // Constructor
 func New(p *podmanRuntime.Podman) *ExtendedPodman {
-	return &ExtendedPodman{Podman: p}
+    return &ExtendedPodman{Podman: p}
 }
 
 func (p ExtendedPodman) GetFileSystemPath(containerId string, namespace string) ([]byte, error) {
-	return exec.Command("podman", "--remote", "--url", p.GetSocket(), "inspect", strings.TrimSpace(containerId), "--format", "{{ .GraphDriver.Data.MergedDir }}").Output()
+	return exec.Command("podman", "--remote", "--url", p.GetSocket() , "inspect", strings.TrimSpace(containerId), "--format", "{{ .GraphDriver.Data.MergedDir }}").Output();
 }
+
 
 var _ vesselent.EntRuntime = (*ExtendedPodman)(nil)

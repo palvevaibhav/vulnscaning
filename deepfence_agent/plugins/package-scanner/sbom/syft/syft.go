@@ -19,6 +19,7 @@ import (
 	podmanRuntime "github.com/deepfence/vessel/podman"
 	vesselConstants "github.com/deepfence/vessel/utils"
 	log "github.com/sirupsen/logrus"
+    "github.com/deepfence/package-scanner/internal/workflow"
 )
 
 var (
@@ -354,19 +355,7 @@ func GenerateSBOM(ctx context.Context, config utils.Config) ([]byte, error) {
 		return generateNormalSBOM(ctx, config)
 	}
 
-	root := strings.TrimPrefix(config.Source, "dir:")
-	tmpRoot, err := os.MkdirTemp("", "sbom-root-*")
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(tmpRoot)
-
-	finalSBOM, err := ProcessDir(ctx, root, root, tmpRoot, config)
-	if err != nil {
-		return nil, err
-	}
-
-	return os.ReadFile(finalSBOM)
+	return workflow.Run(ctx, &config)
 }
 
 func buildCatalogersArg(scanType string, isRegistry bool) []string {

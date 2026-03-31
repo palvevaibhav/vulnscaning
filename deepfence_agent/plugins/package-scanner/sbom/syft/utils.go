@@ -5,32 +5,33 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strconv"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
 func getDirSize(path string) (int64, error) {
-	cmd := exec.Command("du", "-sb", path)
+    cmd := exec.Command("du", "-sb", path)
 
-	out, err := cmd.Output()
-	if err != nil {
-		return 0, err
-	}
+    out, err := cmd.Output()
+    if err != nil {
+        return 0, err
+    }
 
-	fields := strings.Fields(string(out))
-	if len(fields) == 0 {
-		return 0, fmt.Errorf("failed to parse du output")
-	}
+    fields := strings.Fields(string(out))
+    if len(fields) == 0 {
+        return 0, fmt.Errorf("failed to parse du output")
+    }
 
-	size, err := strconv.ParseInt(fields[0], 10, 64)
-	if err != nil {
-		return 0, err
-	}
+    size, err := strconv.ParseInt(fields[0], 10, 64)
+    if err != nil {
+        return 0, err
+    }
 
-	return int64(size), nil
+    return int64(size), nil
 }
+
 
 func makeTempDir() (string, error) {
 	return os.MkdirTemp("", "syft-")
@@ -196,3 +197,4 @@ func trimFirstDir(path string) string {
 	// Otherwise, just return the single segment
 	return parts[0]
 }
+
