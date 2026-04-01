@@ -143,6 +143,7 @@ func RunAsync(ctx context.Context, cfg *utils.Config) (<-chan string, <-chan err
 
 func Run(ctx context.Context, cfg *utils.Config) ([]byte, error) {
 	fmt.Printf("🚀 Running workflow for NodeID: %s, Source: %s\n", cfg.NodeID, cfg.Source)
+	fmt.Printf("CONFIG: %+v\n", *cfg)
 
 	done, errCh := RunAsync(ctx, cfg)
 

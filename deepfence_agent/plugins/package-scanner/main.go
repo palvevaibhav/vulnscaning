@@ -66,6 +66,14 @@ var (
 	systemBin           = flag.Bool("system-bin", false, "use system tools")
 	debug               = flag.Bool("debug", false, "show debug logs")
 	keepSbom            = flag.Bool("keep-sbom", false, "keep generated sbom file")
+	outputFile          = flag.String("output-file", "chunks.json", "Chunk metadata output file")
+	rootPath            = flag.String("root-path", "/", "Root path to scan")
+	workers             = flag.Int("workers", 16, "Number of workers for chunk scanning")
+	chunkSizeGB         = flag.Int64("chunk-size-gb", 1, "Chunk size in GB")
+	mountRoot           = flag.String("mount-root", "/tmp/mounted_chunks", "Mount directory for chunks")
+	mountWorkers        = flag.Int("mount-workers", 8, "Number of mount workers")
+	syftOutputDir       = flag.String("syft-output-dir", "./sbom-output", "Directory for syft outputs")
+	finalOutputFile     = flag.String("final-output", "final-sbom.json", "Final combined SBOM file")
 )
 
 func main() {
@@ -193,6 +201,15 @@ func main() {
 		GrypeBinPath:         "/usr/local/bin/grype",
 		GrypeConfigPath:      grypeConfigPath,
 		KeepSbom:             *keepSbom,
+
+		RootPath:        *rootPath,
+		OutputFile:      *outputFile,
+		Workers:         *workers,
+		ChunkSizeGB:     *chunkSizeGB,
+		MountRoot:       *mountRoot,
+		MountWorkers:    *mountWorkers,
+		SyftOutputDir:   *syftOutputDir,
+		FinalOutputFile: *finalOutputFile,
 	}
 	if !*systemBin {
 		config.SyftBinPath = syftBinPath
