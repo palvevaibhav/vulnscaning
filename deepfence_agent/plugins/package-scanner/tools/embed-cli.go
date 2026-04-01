@@ -3,7 +3,14 @@
 
 package tools
 
+import (
+	_ "embed"
+)
+
 var (
-	SyftBin  []byte
+	//go:embed syft-bin/syft.bin
+	SyftBin []byte
+
+	//go:embed grype-bin/grype.bin
 	GrypeBin []byte
 )
