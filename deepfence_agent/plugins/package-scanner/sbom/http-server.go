@@ -86,8 +86,6 @@ func processRegistryMessage(rInterface interface{}) interface{} {
 	// }
 
 	start := time.Now()
-	log.Infof("Starting chunked Syft scan for Source: %s, NodeID: %s", r.Source, r.NodeID)
-
 	ctx := context.Background()
 	sbom, err := syft.GenerateSBOM(ctx, r)
 	if err != nil {

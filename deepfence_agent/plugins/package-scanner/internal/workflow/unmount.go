@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"github.com/deepfence/package-scanner/utils"
+
 )
 
 // 🔍 Get all mounted paths under root

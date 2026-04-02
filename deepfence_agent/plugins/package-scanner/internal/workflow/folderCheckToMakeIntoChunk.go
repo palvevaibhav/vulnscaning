@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+
 // ---------------- GLOBAL PROGRESS ----------------
 
 var totalBytes int64

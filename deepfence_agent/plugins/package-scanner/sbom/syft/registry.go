@@ -4,14 +4,11 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
-
-	"github.com/deepfence/package-scanner/utils"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -84,7 +81,7 @@ func GetCredentialsFromRegistry(registryID string) (string, string, string, erro
 		if err != nil {
 			return "", "", "", fmt.Errorf("invalid credentials for specified registry")
 		}
-		splitCredentials := strings.Split(string(decodedBytes), ":")
+		splitCredentials := strings.SplitN(string(decodedBytes), ":", 2)
 		if len(splitCredentials) != 2 {
 			return "", "", "", fmt.Errorf("invalid credentials for specified registry")
 		}
@@ -188,52 +185,65 @@ func getDefaultDockerCredentials(registryData map[string]interface{}, registryUR
 	return dockerRegistryURL, dockerUsername, dockerPassword
 }
 
+type dockerConfig struct {
+	Auths map[string]dockerAuth `json:"auths"`
+}
+
+type dockerAuth struct {
+	Auth string `json:"auth"`
+}
+
 func createAuthFile(registryID, registryURL, username, password string) (string, error) {
-	authFilePath := "/tmp/auth_" + registryID + "_" + utils.RandomString(12)
-	if _, err := os.Stat(authFilePath); errors.Is(err, os.ErrNotExist) {
-		err := os.MkdirAll(authFilePath, os.ModePerm)
-		if err != nil {
-			return "", err
-		}
+	authDirPath, err := os.MkdirTemp("", "auth_"+registryID+"_*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp dir for auth file: %w", err)
 	}
+
+	var authString string
 	if password == "" {
-		configJSON := []byte("{\"auths\": {\"" + registryURL + "\": {\"auth\": \"" + strings.ReplaceAll(username, "\"", "\\\"") + "\"} } }")
-		err := os.WriteFile(authFilePath+"/config.json", configJSON, 0644)
-		if err != nil {
-			return "", err
-		}
+		authString = username
 	} else {
-		configJSON := []byte("{\"auths\": {\"" + registryURL + "\": {\"auth\": \"" + base64.StdEncoding.EncodeToString([]byte(username+":"+password)) + "\"} } }")
-		err := os.WriteFile(authFilePath+"/config.json", configJSON, 0644)
-		if err != nil {
-			return "", err
-		}
+		authString = base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 	}
-	return authFilePath, nil
+
+	config := dockerConfig{
+		Auths: map[string]dockerAuth{
+			registryURL: {
+				Auth: authString,
+			},
+		},
+	}
+
+	configJSON, err := json.Marshal(config)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal auth config: %w", err)
+	}
+
+	configPath := authDirPath + "/config.json"
+	if err := os.WriteFile(configPath, configJSON, 0600); err != nil {
+		return "", fmt.Errorf("failed to write auth config file: %w", err)
+	}
+
+	return authDirPath, nil
 }
 
 func getEcrCredentials(awsAccessKey, awsSecret, awsRegionName, registryID string, useIAMRole bool, targetAccountRoleARN string) (string, string) {
-	var awsConfig aws.Config
-	var svc *ecr.ECR
-	var creds *credentials.Credentials
+	awsConfig := aws.Config{
+		Region: aws.String(awsRegionName),
+	}
 
 	if !useIAMRole {
-		awsConfig.WithCredentials(credentials.NewStaticCredentials(awsAccessKey, awsSecret, ""))
+		awsConfig.Credentials = credentials.NewStaticCredentials(awsAccessKey, awsSecret, "")
 	}
+
 	mySession := session.Must(session.NewSession(&awsConfig))
 
-	if useIAMRole {
-		if targetAccountRoleARN == "" {
-			svc = ecr.New(mySession, aws.NewConfig().WithRegion(awsRegionName))
-		} else {
-			creds = stscreds.NewCredentials(mySession, targetAccountRoleARN)
-			svc = ecr.New(mySession, &aws.Config{
-				Credentials: creds,
-				Region:      &awsRegionName,
-			})
-		}
+	var svc *ecr.ECR
+	if useIAMRole && targetAccountRoleARN != "" {
+		creds := stscreds.NewCredentials(mySession, targetAccountRoleARN)
+		svc = ecr.New(mySession, &aws.Config{Credentials: creds})
 	} else {
-		svc = ecr.New(mySession, aws.NewConfig().WithRegion(awsRegionName))
+		svc = ecr.New(mySession)
 	}
 
 	var authorizationTokenRequestInput ecr.GetAuthorizationTokenInput
@@ -242,6 +252,7 @@ func getEcrCredentials(awsAccessKey, awsSecret, awsRegionName, registryID string
 	}
 	authorizationTokenResponse, err := svc.GetAuthorizationToken(&authorizationTokenRequestInput)
 	if err != nil {
+		// NOTE: It would be good practice to log this error for easier debugging.
 		return "", ""
 	}
 	authorizationData := authorizationTokenResponse.AuthorizationData

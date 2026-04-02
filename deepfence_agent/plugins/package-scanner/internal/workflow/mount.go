@@ -1,4 +1,5 @@
 package workflow
+
 import (
 	"bufio"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
 	"github.com/deepfence/package-scanner/utils"
 )
 

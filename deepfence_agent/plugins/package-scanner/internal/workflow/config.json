@@ -1,5 +1,5 @@
 {
-  // "root_path": "/home/vaibhav",
+  "root_path": "/",
   "output_file": "chunks.json",
   "workers": 16,
   "chunk_size_gb": 1,

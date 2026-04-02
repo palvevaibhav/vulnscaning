@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"fmt"
 
 	"github.com/deepfence/vessel"
 	"github.com/gin-gonic/gin"
@@ -21,8 +20,8 @@ import (
 	crioRuntime "github.com/deepfence/vessel/crio"
 	dockerRuntime "github.com/deepfence/vessel/docker"
 	podmanRuntime "github.com/deepfence/vessel/podman"
-	vc "github.com/deepfence/vessel/utils"
 	log "github.com/sirupsen/logrus"
+	vc "github.com/deepfence/vessel/utils"
 )
 
 const (
@@ -232,10 +231,6 @@ func main() {
 		}
 	}
 
-	fmt.Println("GOMAXPROCS:", runtime.GOMAXPROCS(0)) // we have to test this one also to change value 1 2
-	fmt.Println("NumCPU:", runtime.NumCPU())
-//	fmt.Println("Active Threads:", runtime.NumThread())
-	fmt.Println("Active Goroutines:", runtime.NumGoroutine())
 	switch *mode {
 	case utils.ModeLocal:
 		RunOnce(config)

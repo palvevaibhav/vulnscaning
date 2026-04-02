@@ -31,8 +31,8 @@ func RunOnce(config utils.Config) {
 	}
 	// trim any spaces from severities passed from command line
 	cSeverity := []string{}
-	if len(*severity) > 0 {
-		for _, s := range strings.Split(*severity, ",") {
+	if len(config.Severity) > 0 {
+		for _, s := range strings.Split(config.Severity, ",") {
 			cSeverity = append(cSeverity, strings.TrimSpace(s))
 		}
 	}
@@ -155,7 +155,7 @@ func RunOnce(config utils.Config) {
 
 	exploitable, others := GroupByExploitability(&filtered)
 
-	if *output != utils.JSONOutput {
+	if config.Output != utils.JSONOutput {
 		fmt.Printf("summary:\n total=%d %s=%d %s=%d %s=%d %s=%d\n",
 			details.Total,
 			utils.CRITICAL, details.Severity.Critical,
